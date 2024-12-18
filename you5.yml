@@ -1,0 +1,128 @@
+# ClusterRole to allow access to ConfigMap, StatefulSet, and Service resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mysql-cluster-role
+rules:
+  # Allow access to ConfigMap
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+  # Allow access to StatefulSets in apps group
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+  # Allow access to Services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+  # Allow access to PersistentVolumeClaims (to handle PVCs)
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+---
+# ClusterRoleBinding to bind the above ClusterRole to nodes or service accounts
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mysql-cluster-role-binding
+subjects:
+  # Bind this ClusterRole to the EC2 node or a ServiceAccount (modify as necessary)
+  - kind: User
+    name: "system:node:ip-10-0-2-62.ec2.internal"  # Replace with your actual node user name
+    apiGroup: rbac.authorization.k8s.io
+  - kind: User
+    name: "system:node:ip-10-0-3-221.ec2.internal"  # Replace with your actual node name or service account name
+    apiGroup: rbac.authorization.k8s.io     
+  # You can also bind to a specific ServiceAccount instead of node users
+  # - kind: ServiceAccount
+  #   name: mysql-sa  # Replace with your actual service account name
+  #   namespace: default
+roleRef:
+  kind: ClusterRole
+  name: mysql-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+  
+---
+# Role to allow access to resources in the 'one' namespace for deployment purposes
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: one  # Target namespace
+  name: mysql-role
+rules:
+  # Allow access to ConfigMap
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+  # Allow access to StatefulSets in apps group
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+  # Allow access to Services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+  # Allow access to PersistentVolumeClaims
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  
+---
+# RoleBinding to bind the above Role to the service account or user in the 'one' namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mysql-role-binding
+  namespace: one  # Target namespace
+subjects:
+  # Bind this Role to the EC2 node or a ServiceAccount
+  - kind: User
+    name: "system:node:ip-10-0-2-62.ec2.internal"  # Replace with your actual node name or service account name
+    apiGroup: rbac.authorization.k8s.io
+  - kind: User
+    name: "system:node:ip-10-0-3-221.ec2.internal"  # Replace with your actual node name or service account name
+    apiGroup: rbac.authorization.k8s.io  
+  # - kind: ServiceAccount
+  #   name: mysql-sa
+  #   namespace: one
+roleRef:
+  kind: Role
+  name: mysql-role
+  apiGroup: rbac.authorization.k8s.io
+  ########
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: statefulset-manager
+rules:
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: statefulset-manager-binding
+  namespace: default
+subjects:
+  - kind: User
+    name: "system:node:ip-10-0-3-221.ec2.internal"
+    apiGroup: rbac.authorization.k8s.io
+  - kind: User
+    name: "system:node:ip-10-0-2-62.ec2.internal"
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: statefulset-manager
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,140 @@
+---
+- name: Apply Kubernetes Deployment to EKS Cluster
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install required Python libraries
+      yum:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Install Kubernetes Python module
+      pip:
+        name: kubernetes
+        executable: pip3
+
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/v1.23.0/bin/linux/amd64/kubectl"
+        chmod +x ./kubectl
+        mv ./kubectl /usr/local/bin/kubectl
+      args:
+        creates: /usr/local/bin/kubectl
+
+    # - name: Copy kubeconfig to the node
+    #   copy:
+    #     src: /home/ubuntu/.kube/  # Path to your local file
+    #     dest: /home/ec2-user/ # Path on the remote server
+    #   become: yes
+    #   become_user: ec2-user 
+    # - name: Install AWS CLI
+    #   shell: |
+    #     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    #     unzip awscliv2.zip
+    #     sudo ./aws/install
+    #   args:
+    #     creates: /usr/local/bin/aws
+
+    # - name: Verify AWS CLI installation
+    #   command: aws --version
+
+    - name: Set kubeconfig environment variable and generate kubeconfig
+      ansible.builtin.shell:
+        cmd: | 
+          aws eks --region us-east-1 update-kubeconfig --name eks-cluster
+          export KUBECONFIG=/home/ec2-user/.kube/config
+      environment:
+        AWS_ACCESS_KEY_ID: <--------->
+        AWS_SECRET_ACCESS_KEY: <--------->
+        AWS_DEFAULT_REGION: "us-east-1"
+      become_user: ec2-user
+
+    # - name: Validate kubeconfig file with kubectl
+    #   shell: kubectl config view
+    #   become_user: ec2-user
+    #   environment:
+    #     KUBECONFIG: /home/ec2-user/.kube/config
+    #   register: kubeconfig_validation
+    #   failed_when: "'clusters:' not in kubeconfig_validation.stdout"
+      
+
+    - name: Change ownership of .kube directory
+      command: chown -R ec2-user:ec2-user /home/ec2-user/.kube
+      become: yes
+
+    - name: Set correct permissions for .kube directory
+      command: chmod 700 /home/ec2-user/.kube
+      become: yes
+
+    - name: Check if kubeconfig file exists
+      stat:
+        path: /home/ec2-user/.kube/config
+      register: kubeconfig_status
+
+    - name: Copy kubeconfig if not present
+      copy:
+        content: "{{ kubeconfig_output.stdout }}"
+        dest: /home/ec2-user/.kube/config
+        mode: '0600'
+      when: not kubeconfig_status.stat.exists
+
+    - name: Set ownership of kubeconfig file
+      file:
+        path: /home/ec2-user/.kube/config
+        owner: ec2-user
+        group: ec2-user
+        mode: '0600'
+
+    - name: Copy you1.yml to the node
+      copy:
+        src: you1.yml  # Path to your local file
+        dest: /home/ec2-user/ # Path on the remote server
+      become: yes
+      become_user: ec2-user  
+
+    - name: Copy you2.yml to the node
+      copy:
+        src: you2.yml  # Path to your local file
+        dest: /home/ec2-user/ # Path on the remote server
+      become: yes
+      become_user: ec2-user  
+    - name: Copy you3.yml to the node
+      copy:
+        src: you3.yml  # Path to your local file
+        dest: /home/ec2-user/ # Path on the remote server
+      become: yes
+      become_user: ec2-user              
+
+    # - name: Copy check3.yml to the node
+    #   copy:
+    #     src: check3.yml  # Path to your local file
+    #     dest: /home/ec2-user/ # Path on the remote server
+    #   become: yes
+    #   become_user: ec2-user        
+
+    - name: Create Kubernetes namespace
+      shell: kubectl create namespace one || true
+      become_user: ec2-user  # Run the command as the ec2-user
+      environment:
+        KUBECONFIG: /home/ec2-user/.kube/config
+
+    # - name: Apply Kubernetes role
+    #   ansible.builtin.shell:
+    #     cmd: |
+    #       kubectl apply -f check3.yml
+    #   become_user: ec2-user
+    #   environment:
+    #     KUBECONFIG: /home/ec2-user/.kube/config
+
+    - name: Apply Kubernetes deployment YAML
+      ansible.builtin.shell:
+        cmd: |
+          kubectl apply -f you1.yml
+          kubectl apply -f you2.yml
+          kubectl apply -f you3.yml
+      become_user: ec2-user
+      environment:
+        KUBECONFIG: /home/ec2-user/.kube/config
+

@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  # This role is for the "webapps" namespace, where you're trying to apply the resources.
+  # Adjust the namespace if necessary.
+  namespace: webapps
+  name: node-access
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "get", "list", "update", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["create", "get", "list", "update", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: node-access-binding
+  namespace: webapps
+subjects:
+  - kind: User
+    name: system:node:ip-10-0-3-221.ec2.internal
+    apiGroup: rbac.authorization.k8s.io
+  - kind: User
+    name: system:node:ip-10-0-2-62.ec2.internal
+    apiGroup: rbac.authorization.k8s.io    
+roleRef:
+  kind: Role
+  name: node-access
+  apiGroup: rbac.authorization.k8s.io
